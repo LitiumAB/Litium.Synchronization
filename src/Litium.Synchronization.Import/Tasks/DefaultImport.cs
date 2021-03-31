@@ -1,4 +1,4 @@
-﻿using Litium.Common;
+using Litium.Common;
 using Litium.ComponentModel;
 using Litium.Customers;
 using Litium.FieldFramework;
@@ -35,6 +35,7 @@ namespace Litium.Synchronization.Import.Tasks
         protected readonly FieldDefinitionService _fieldDefinitionService;
         private readonly LanguageService _languageService;
         protected readonly OrganizationService _organizationService;
+        private bool _isExecuting = false;
 
         protected DefaultImport(string directory)
         {
@@ -57,7 +58,9 @@ namespace Litium.Synchronization.Import.Tasks
         protected abstract void ProcessItem(BaseItem item);
         public void ExecuteTask(SecurityToken token, string parameters)
         {
-            var maxArchiveAgeInDays = 7;
+            if (_isExecuting) return;
+            _isExecuting = true;
+            var maxArchiveAgeInDays = 15;
             var maxErrorAgeInMonths = 1;
             string[] args = parameters.Split(',');
             foreach (var arg in args)
@@ -69,7 +72,7 @@ namespace Litium.Synchronization.Import.Tasks
                     {
                         case "maxarchiveageindays":
                             if (!int.TryParse(keyValue[1], out maxArchiveAgeInDays))
-                                maxArchiveAgeInDays = 7;
+                                maxArchiveAgeInDays = 15;
                             break;
                         case "maxerrorageinmonths":
                             if (!int.TryParse(keyValue[1], out maxErrorAgeInMonths))
@@ -85,31 +88,86 @@ namespace Litium.Synchronization.Import.Tasks
             }
 
             Monitor.Enter(_lock);
+            var itemId = string.Empty;
+            FileInfo previousFile = null;
+            var lastProcessedItemId = string.Empty;
             try
             {
                 foreach (var file in directory.GetFiles().OrderBy(x => x.Name))
                 {
+                    var currentItemId = file.Name.IndexOf("-") > -1 ? file.Name.Split('-')[0] : string.Empty;
                     try
                     {
-                        _log.Info(Messages.FileProcessing, file.Name);
-                        ProcessItem(ReadFile(file));
-                        MoveToFolder(file, Path.Combine(_archive, DateTime.Now.ToShortDateString(), DateTime.Now.Hour.ToString()));
-                        _log.Info(Messages.FileCompletedSucceeded);
+                        if ((string.IsNullOrEmpty(itemId) || itemId.Equals(currentItemId, StringComparison.OrdinalIgnoreCase)) && currentItemId.StartsWith("LS", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (string.IsNullOrEmpty(itemId) && !string.IsNullOrEmpty(currentItemId))
+                            {
+                                itemId = currentItemId;
+                            }
+                            if (previousFile != null)
+                            {
+                                MoveToFolder(previousFile, Path.Combine(_archive, DateTime.Now.ToShortDateString(), DateTime.Now.Hour.ToString()));
+                            }
+                            previousFile = file;
+                            continue;
+                        }
+                        if (!currentItemId.StartsWith("LS", StringComparison.OrdinalIgnoreCase))
+                        {
+                            ProcessItem(file, itemId, out lastProcessedItemId);
+                        }
+                        else if (previousFile != null)
+                        {
+                            ProcessItem(previousFile, itemId, out lastProcessedItemId);
+                        }
                     }
                     catch (Exception e)
                     {
                         _log.Error(e.Message, e);
-                        var fileName = MoveToFolder(file, _error);
+                        var fileName = MoveToFolder(previousFile, _error);
                         CreateErrorLog(fileName, e);
                     }
+                    if (currentItemId.StartsWith("LS", StringComparison.OrdinalIgnoreCase))
+                    {
+                        previousFile = file;
+                        itemId = currentItemId;
+                    }
                 }
+
+                if ((string.IsNullOrEmpty(lastProcessedItemId) || !lastProcessedItemId.Equals(itemId, StringComparison.OrdinalIgnoreCase)) && previousFile != null)
+                {
+                    ProcessItem(previousFile, itemId, out lastProcessedItemId);
+                }
+
                 CleanupOldFiles(_archive, DateTime.UtcNow.AddDays(-1 * maxArchiveAgeInDays));
                 CleanupOldFiles(_error, DateTime.UtcNow.AddMonths(-1 * maxErrorAgeInMonths));
             }
             finally
             {
+                lastProcessedItemId = string.Empty;
+                itemId = string.Empty;
+                previousFile = null;
+                _isExecuting = false;
                 Monitor.Exit(_lock);
             }
+        }
+
+
+        private void ProcessItem(FileInfo file, string itemId, out string lastProcessedItemId)
+        {
+            try
+            {
+                _log.Info(Messages.FileProcessing, file.Name);
+                ProcessItem(ReadFile(file));
+                MoveToFolder(file, Path.Combine(_archive, DateTime.Now.ToShortDateString(), DateTime.Now.Hour.ToString()));
+                _log.Info(Messages.FileCompletedSucceeded);
+            }
+            catch (Exception e)
+            {
+                _log.Error(e.Message, e);
+                var fileName = MoveToFolder(file, _error);
+                CreateErrorLog(fileName, e);
+            }
+            lastProcessedItemId = itemId;
         }
 
         private void CreateErrorLog(string fileName, Exception ex)
@@ -215,7 +273,7 @@ namespace Litium.Synchronization.Import.Tasks
             var fieldDefinition = _fieldDefinitionService.Get(field.FieldDefinitionSystemId);
             if (fieldDefinition != null)
             {
-                if (fieldDefinition.FieldType == field.FieldType.ToString())
+                if (fieldDefinition.FieldType.Equals(field.FieldType.ToString(), StringComparison.OrdinalIgnoreCase) || (fieldDefinition.FieldType.Equals("Date", StringComparison.OrdinalIgnoreCase) && field.FieldType == FieldType.DateTime))
                 {
                     switch (field.FieldType)
                     {
@@ -236,7 +294,14 @@ namespace Litium.Synchronization.Import.Tasks
                             }
                             break;
                         case FieldType.TextOption:
-                            AddArrayValue(fieldContainer, fieldDefinition.Id, field.TextOptionValue.Select(x => (object)x).ToList(), fieldDefinition.MultiCulture);
+                            if (field.IsMultiSelect)
+                            {
+                                AddStringArrayValue(fieldContainer, fieldDefinition.Id, field.TextOptionValue, fieldDefinition.MultiCulture);
+                            }
+                            else
+                            {
+                                AddSingleValue(fieldContainer, fieldDefinition.Id, field.TextOptionValue.FirstOrDefault(), fieldDefinition.MultiCulture);
+                            }
                             break;
                     }
                 }
@@ -266,25 +331,19 @@ namespace Litium.Synchronization.Import.Tasks
             }
         }
 
-        private void AddArrayValue(MultiCultureFieldContainer fields, string fieldDefinitonId, List<object> values, bool isMulticulture)
+        private void AddStringArrayValue(MultiCultureFieldContainer fields, string fieldDefinitonId, List<string> values, bool isMulticulture)
         {
             if (isMulticulture)
             {
                 var languages = _languageService.GetAll();
-                foreach (var value in values)
+                foreach (var language in languages)
                 {
-                    foreach (var language in languages)
-                    {
-                        fields.AddOrUpdateValue(fieldDefinitonId, language.CultureInfo.Name, value);
-                    }
+                    fields.AddOrUpdateValue(fieldDefinitonId, language.CultureInfo.Name, values);
                 }
             }
             else
             {
-                foreach (var value in values)
-                {
-                    fields.AddOrUpdateValue(fieldDefinitonId, value);
-                }
+                fields.AddOrUpdateValue(fieldDefinitonId, values);
             }
         }
 
