@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Litium.Customers;
 using Litium.FieldFramework;
 using Litium.Foundation.Modules.ECommerce;
@@ -106,104 +106,107 @@ namespace Litium.Synchronization.Import.Tasks
             orderCarrier.LastUpdatedDate = currentOrderCarrier.LastUpdatedDate;
 
             // Cusomer info carrier
-            SetCarrierStateToUpdate(orderCarrier.CustomerInfo.CarrierState);
             if (currentOrderCarrier.CustomerInfo != null)
             {
+                SetCarrierStateToUpdate(orderCarrier.CustomerInfo.CarrierState);
                 orderCarrier.CustomerInfo.LastUpdatedDate = currentOrderCarrier.CustomerInfo.LastUpdatedDate;
             }
 
             // Customer info address carrier
-            SetCarrierStateToUpdate(orderCarrier.CustomerInfo.Address.CarrierState);
-            orderCarrier.CustomerInfo.Address.LastUpdatedDate = currentOrderCarrier.CustomerInfo.Address.LastUpdatedDate;
+            if (currentOrderCarrier.CustomerInfo.Address != null)
+            {
+                SetCarrierStateToUpdate(orderCarrier.CustomerInfo.Address.CarrierState);
+                orderCarrier.CustomerInfo.Address.LastUpdatedDate = currentOrderCarrier.CustomerInfo.Address.LastUpdatedDate;
+            }
             foreach (var additionalOrderInfoCarrier in orderCarrier.AdditionalOrderInfo)
             {
                 var currentAdditionalOrderInfoCarrier = currentOrderCarrier.AdditionalOrderInfo?.FirstOrDefault(x => x.ID == additionalOrderInfoCarrier.ID);
-                SetCarrierStateToUpdate(additionalOrderInfoCarrier.CarrierState);
                 if (currentAdditionalOrderInfoCarrier != null)
                 {
+                    SetCarrierStateToUpdate(additionalOrderInfoCarrier.CarrierState);
                     additionalOrderInfoCarrier.LastUpdatedDate = currentAdditionalOrderInfoCarrier.LastUpdatedDate;
                 }
             }
             foreach (var orderDiscountCarrier in orderCarrier.OrderDiscounts)
             {
                 var currentOrderDiscountCarrier = currentOrderCarrier.OrderDiscounts?.FirstOrDefault(x => x.ID == orderDiscountCarrier.ID);
-                SetCarrierStateToUpdate(orderDiscountCarrier.CarrierState);
                 if (currentOrderDiscountCarrier != null)
                 {
+                    SetCarrierStateToUpdate(orderDiscountCarrier.CarrierState);
                     orderDiscountCarrier.LastUpdatedDate = currentOrderDiscountCarrier.LastUpdatedDate;
                 }
             }
             foreach (var orderRowCarrier in orderCarrier.OrderRows)
             {
                 var currentOrderRowCarrier = currentOrderCarrier.OrderRows?.FirstOrDefault(x => x.ID == orderRowCarrier.ID);
-                SetCarrierStateToUpdate(orderRowCarrier.CarrierState);
                 if (currentOrderRowCarrier != null)
                 {
+                    SetCarrierStateToUpdate(orderRowCarrier.CarrierState);
                     orderRowCarrier.LastUpdatedDate = currentOrderRowCarrier.LastUpdatedDate;
                 }
             }
             foreach (var deliveryCarrier in orderCarrier.Deliveries)
             {
                 var currentDeliveryCarrier = currentOrderCarrier.Deliveries?.FirstOrDefault(x => x.ID == deliveryCarrier.ID);
-                SetCarrierStateToUpdate(deliveryCarrier.CarrierState);
                 if (currentDeliveryCarrier != null)
                 {
+                    SetCarrierStateToUpdate(deliveryCarrier.CarrierState);
                     deliveryCarrier.LastUpdatedDate = currentDeliveryCarrier.LastUpdatedDate;
                 }
                 foreach (var additionalDeliveryInfoCarrier in deliveryCarrier.AdditionalDeliveryInfo)
                 {
                     var currentAdditionalDeliveryInfoCarrier = currentDeliveryCarrier?.AdditionalDeliveryInfo?.FirstOrDefault(x => x.ID == additionalDeliveryInfoCarrier.ID);
-                    SetCarrierStateToUpdate(additionalDeliveryInfoCarrier.CarrierState);
                     if (currentAdditionalDeliveryInfoCarrier != null)
                     {
+                        SetCarrierStateToUpdate(additionalDeliveryInfoCarrier.CarrierState);
                         additionalDeliveryInfoCarrier.LastUpdatedDate = currentAdditionalDeliveryInfoCarrier.LastUpdatedDate;
                     }
                 }
 
-                SetCarrierStateToUpdate(deliveryCarrier.Address.CarrierState);
                 if (currentDeliveryCarrier?.Address != null)
                 {
+                    SetCarrierStateToUpdate(deliveryCarrier.Address.CarrierState);
                     deliveryCarrier.Address.LastUpdatedDate = currentDeliveryCarrier.Address.LastUpdatedDate;
                 }
             }
             foreach (var paymentInfoCarrier in orderCarrier.PaymentInfo)
             {
                 var currentPaymentInfoCarrier = currentOrderCarrier.PaymentInfo?.FirstOrDefault(x => x.ID == paymentInfoCarrier.ID);
-                SetCarrierStateToUpdate(paymentInfoCarrier.CarrierState);
                 if (currentPaymentInfoCarrier != null)
                 {
+                    SetCarrierStateToUpdate(paymentInfoCarrier.CarrierState);
                     paymentInfoCarrier.LastUpdatedDate = currentPaymentInfoCarrier.LastUpdatedDate;
                 }
                 foreach (var paymentInfoRowCarrier in paymentInfoCarrier.Rows)
                 {
                     var currentPaymentInfoRowCarrier = currentPaymentInfoCarrier?.Rows?.FirstOrDefault(x => x.PaymentInfoRowID == paymentInfoRowCarrier.PaymentInfoRowID);
-                    SetCarrierStateToUpdate(paymentInfoRowCarrier.CarrierState);
                     if (currentPaymentInfoRowCarrier != null)
                     {
+                        SetCarrierStateToUpdate(paymentInfoRowCarrier.CarrierState);
                         paymentInfoRowCarrier.LastUpdatedDate = currentPaymentInfoRowCarrier.LastUpdatedDate;
                     }
                 }
                 foreach (var additionalPaymentInfoCarrier in paymentInfoCarrier.AdditionalPaymentInfo)
                 {
                     var currentAdditionalPaymentInfoCarrier = currentPaymentInfoCarrier?.AdditionalPaymentInfo?.FirstOrDefault(x => x.ID == additionalPaymentInfoCarrier.ID);
-                    SetCarrierStateToUpdate(additionalPaymentInfoCarrier.CarrierState);
                     if (currentAdditionalPaymentInfoCarrier != null)
                     {
+                        SetCarrierStateToUpdate(additionalPaymentInfoCarrier.CarrierState);
                         additionalPaymentInfoCarrier.LastUpdatedDate = currentAdditionalPaymentInfoCarrier.LastUpdatedDate;
                     }
                 }
-                SetCarrierStateToUpdate(paymentInfoCarrier.BillingAddress.CarrierState);
                 if (currentPaymentInfoCarrier?.BillingAddress != null)
                 {
+                    SetCarrierStateToUpdate(paymentInfoCarrier.BillingAddress.CarrierState);
                     paymentInfoCarrier.BillingAddress.LastUpdatedDate = currentPaymentInfoCarrier.BillingAddress.LastUpdatedDate;
                 }
             }
             foreach (var feeCarrier in orderCarrier.Fees)
             {
                 var currentFeeCarrier = currentOrderCarrier.Fees?.FirstOrDefault(x => x.ID == feeCarrier.ID);
-                SetCarrierStateToUpdate(feeCarrier.CarrierState);
                 if (currentFeeCarrier != null)
                 {
+                    SetCarrierStateToUpdate(feeCarrier.CarrierState);
                     feeCarrier.LastUpdatedDate = currentFeeCarrier.LastUpdatedDate;
                 }
 
